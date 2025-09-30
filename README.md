@@ -13,7 +13,7 @@ This GitHub Action uses Google Gemini CLI to automatically remediate Terraform c
 
 | Name          | Description                                                                 | Required | Default |
 |---------------|-----------------------------------------------------------------------------|----------|---------|
-| `plan-command`| Shell command to run Terraform plan (e.g., `terraform plan -no-color -detailed-exitcode || true`) | Yes | - |
+| `plan-command`| Shell command to run Terraform plan (e.g., `terraform plan -no-color`) | Yes | - |
 | `workdir`     | Working directory for Terraform files                                       | No      | `.`   |
 | `gemini-model`| Gemini model to use (e.g., `gemini-2.5-flash`)                              | No      | `gemini-2.5-flash` |
 | `extra-prompt`| Additional instructions to append to the prompt                              | No      | `""`  |
