@@ -1,4 +1,4 @@
-# Terraform Drift Correction (Gemini)
+# Terraform Drift Integration Assistant Action
 
 This GitHub Action uses Google Gemini CLI to automatically remediate Terraform configuration drift by editing HCL files based on `terraform plan` output.
 
