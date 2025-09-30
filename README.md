@@ -46,7 +46,7 @@ Using Gemini API will incur costs based on model usage. Monitor your Google Clou
 
 ```yaml
 - name: Remediate drift with Gemini
-  uses: ./.github/actions/terraform-drift-gemini-remediate
+  uses: sooraj-satheesh/tf-drift-integrator-agent@main
   with:
     plan-command: 'terraform plan -no-color -detailed-exitcode || true'
     gemini-api-key: ${{ secrets.GEMINI_API_KEY }}
@@ -56,7 +56,7 @@ Using Gemini API will incur costs based on model usage. Monitor your Google Clou
 
 ```yaml
 - name: Remediate drift with custom settings
-  uses: ./.github/actions/terraform-drift-gemini-remediate
+  uses: sooraj-satheesh/tf-drift-integrator-agent@main
   with:
     plan-command: 'terraform plan -no-color -detailed-exitcode || true'
     workdir: './terraform'  # Custom working directory
