@@ -1,0 +1,96 @@
+name: "Terraform Drift Correction (Gemini, text-plan)"
+description: "Use Gemini CLI to remediate Terraform drift by editing HCL based on human-readable plan output."
+inputs:
+  plan-command:
+    description: "Shell command to produce terraform plan text output (e.g., 'terraform plan -no-color -detailed-exitcode || true')."
+    required: true
+  workdir:
+    description: "Working directory for Terraform code."
+    default: "."
+  gemini-model:
+    description: "Gemini model to use."
+    default: "gemini-2.5-flash"
+  extra-prompt:
+    description: "Optional extra instructions appended to the prompt."
+    default: ""
+  gemini-api-key:
+    description: "API key for Gemini."
+    required: true
+outputs:
+  has_changes:
+    description: "true if repository files changed after remediation."
+    value: ${{ steps.check.outputs.has_changes }}
+runs:
+  using: "composite"
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+
+    - name: Install Gemini CLI
+      shell: bash
+      run: npm install -g @google/gemini-cli@latest
+
+    - name: Run remediation
+      shell: bash
+      env:
+        GEMINI_API_KEY: ${{ inputs.gemini-api-key }}
+        MODEL: ${{ inputs.gemini-model }}
+        WORKDIR: ${{ inputs.workdir }}
+        EXTRA_PROMPT: ${{ inputs.extra-prompt }}
+      run: |
+        set -euo pipefail
+        cd "${WORKDIR}"
+
+        # 1) Produce plan output and build prompt
+        PLAN_OUTPUT="$(${SHELL:-/bin/bash} -lc "${{ inputs.plan-command }}" 2>&1 || true)"
+
+        PROMPT="The following is the output of \"terraform plan\", which shows drift between the local HCL configuration and the actual cloud state. Your task is to modify the local HCL code so that it matches the cloud state exactly, ensuring that there is no drift.
+
+        - If the plan shows a resource attribute as \"a -> b\", where \"a\" is the current cloud state and \"b\" is the value in the local HCL, update the local HCL to use \"a\".
+        - Only modify the attributes necessary to remove drift; do not alter unrelated parts.
+
+        - Example:
+          Plan excerpt:
+            ~ resource \"aws_s3_bucket\" \"example\"
+                versioning.0.enabled: \"true\" -> \"false\"
+          Action:
+            Update the HCL to set:
+              resource \"aws_s3_bucket\" \"example\" {
+                versioning {
+                  enabled = true
+                }
+              }
+
+        - Example:
+          Plan excerpt:
+            ~ resource \"aws_instance\" \"web\"
+                ~ tags.Name = \"WebApp-dev\" -> \"WebApp-prod\"
+          Action:
+            Update the HCL to set:
+              resource \"aws_instance\" \"web\" {
+                tags = {
+                  Name = \"WebApp-dev\"
+                }
+              }
+
+        Iterate with 'terraform plan' till the HCL is in sync with the cloud state. Do not use 'terraform apply' at any point, the cloud state must remain unchanged. Here is the present Terraform plan output:
+
+        ${PLAN_OUTPUT}
+
+        ${EXTRA_PROMPT}"
+
+        # 2) Invoke Gemini; YOLO auto-approves agent actions (file edits, commands)
+        gemini -m "${MODEL}" --yolo -p "${PROMPT}"
+
+    - name: Check for changes
+      id: check
+      shell: bash
+      run: |
+        if [[ -n $(git status --porcelain) ]]; then
+          echo "has_changes=true" >> "$GITHUB_OUTPUT"
+          git status --porcelain
+        else
+          echo "has_changes=false" >> "$GITHUB_OUTPUT"
+        fi
